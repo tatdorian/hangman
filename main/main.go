@@ -27,11 +27,11 @@ func main() {
 		return
 	}
 
-	fmt.Println("Good Luck. You have 10 attempts")
+	fmt.Println("Good Luck. You have 10 attempts\n")
 	fmt.Println(display)
 
 	for attempts > 0 {
-		fmt.Print("Choose a letter or a word: ")
+		fmt.Print("\nChoose a letter or a word: ")
 		var input string
 		fmt.Scanln(&input)
 
@@ -47,7 +47,7 @@ func main() {
 				display = hangman.RevealLetter(word, display, letter)
 				fmt.Println(display)
 				if display == word {
-					fmt.Println("Congratulations!")
+					fmt.Println("\n Congratulations!")
 					return
 				}
 			} else {
@@ -57,7 +57,7 @@ func main() {
 			}
 		} else if len(input) >= 2 {
 			if input == word {
-				fmt.Println("Congratulations! You guessed the word.")
+				fmt.Println("\n Congratulations! You guessed the word.")
 				return
 			} else {
 				attempts -= 2
@@ -69,7 +69,7 @@ func main() {
 		}
 	}
 
-	fmt.Printf("You have run out of attempts. The word was %s.\n", word)
+	fmt.Printf("\n You have run out of attempts. The word was %s.\n", word)
 }
 func revealRandomLetters(word string) string {
 	n := len(word)/2 - 1
