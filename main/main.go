@@ -18,16 +18,16 @@ func main() {
 	guessedLetters := []string{}
 	word := hangman.RandomWord(words)
 	attempts := 10
-	display := revealRandomLetters(word)
+	display := revealLetters(word)
 
 	PositionsFile := "hangman.txt"
-	Positions, err := hangman.LoadHangmanPositions(PositionsFile)
+	Positions, err := hangman.HangmanPositions(PositionsFile)
 	if err != nil {
 		fmt.Printf("Error loading hangman positions: %v\n", err)
 		return
 	}
 
-	fmt.Println("Good Luck. You have 10 attempts\n")
+	fmt.Println("Good Luck. You have 10 attempts")
 	fmt.Println(display)
 
 	for attempts > 0 {
@@ -54,6 +54,7 @@ func main() {
 				attempts--
 				fmt.Printf("Letter not found, %d attempts remaining:\n", attempts)
 				hangman.DisplayHangman(Positions, 10-attempts)
+				fmt.Printf(display)
 			}
 		} else if len(input) >= 2 {
 			if input == word {
@@ -63,6 +64,7 @@ func main() {
 				attempts -= 2
 				fmt.Printf("Incorrect word, %d attempts remaining:\n", attempts)
 				hangman.DisplayHangman(Positions, 10-attempts)
+				fmt.Printf(display)
 			}
 		} else {
 			fmt.Println("Please enter a valid letter or word.")
@@ -71,9 +73,9 @@ func main() {
 
 	fmt.Printf("\n You have run out of attempts. The word was %s.\n", word)
 }
-func revealRandomLetters(word string) string {
+func revealLetters(word string) string {
 	n := len(word)/2 - 1
-	randomIndices := generateRandomIndices(len(word), n)
+	randomIndices := generateIndices(len(word), n)
 	display := strings.Repeat("_", len(word))
 
 	for _, idx := range randomIndices {
@@ -83,7 +85,7 @@ func revealRandomLetters(word string) string {
 	return display
 }
 
-func generateRandomIndices(length, n int) []int {
+func generateIndices(length, n int) []int {
 	if n > length {
 		n = length
 	}
