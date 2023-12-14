@@ -21,7 +21,7 @@ func main() {
 	display := revealLetters(word)
 
 	PositionsFile := "hangman.txt"
-	Positions, err := hangman.HangmanPositions(PositionsFile)
+	Positions, err := hangman.LoadHangmanPositions(PositionsFile)
 	if err != nil {
 		fmt.Printf("Error loading hangman positions: %v\n", err)
 		return
