@@ -69,7 +69,7 @@ func DisplayHangman(positions []string, essai int) {
 	}
 	fmt.Println(positions[essai])
 }
-func main() {
+func Main() {
 	wordsFile := "words.txt"
 	words, err := LoadWords(wordsFile)
 	if err != nil {
