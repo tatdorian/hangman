@@ -1,4 +1,4 @@
-package hangman
+package hangmanweb
 
 import (
 	"bufio"
@@ -68,4 +68,97 @@ func DisplayHangman(positions []string, essai int) {
 		return
 	}
 	fmt.Println(positions[essai])
+}
+func main() {
+	wordsFile := "words.txt"
+	words, err := LoadWords(wordsFile)
+	if err != nil {
+		fmt.Printf("Error loading words from %s: %v\n", wordsFile, err)
+		return
+	}
+
+	guessedLetters := []string{}
+	word := RandomWord(words)
+	attempts := 10
+	display := revealLetters(word)
+
+	PositionsFile := "hangman.txt"
+	Positions, err := LoadHangmanPositions(PositionsFile)
+	if err != nil {
+		fmt.Printf("Error loading hangman positions: %v\n", err)
+		return
+	}
+
+	fmt.Println("Good Luck. You have 10 attempts")
+	fmt.Println(display)
+
+	for attempts > 0 {
+		fmt.Print("\nChoose a letter or a word: ")
+		var input string
+		fmt.Scanln(&input)
+
+		if len(input) == 1 {
+			letter := input
+			if contains(guessedLetters, letter) {
+				fmt.Printf("You have already guessed this letter '%s'.\n", letter)
+				continue
+			}
+			guessedLetters = append(guessedLetters, letter)
+
+			if strings.Contains(word, letter) {
+				display = RevealLetter(word, display, letter)
+				fmt.Println(display)
+				if display == word {
+					fmt.Println("\n Congratulations!")
+					return
+				}
+			} else {
+				attempts--
+				fmt.Printf("Letter not found, %d attempts remaining:\n", attempts)
+				DisplayHangman(Positions, 10-attempts)
+				fmt.Printf(display)
+			}
+		} else if len(input) >= 2 {
+			if input == word {
+				fmt.Println("\n Congratulations! You guessed the word.")
+				return
+			} else {
+				attempts -= 2
+				fmt.Printf("Incorrect word, %d attempts remaining:\n", attempts)
+				DisplayHangman(Positions, 10-attempts)
+				fmt.Printf(display)
+			}
+		} else {
+			fmt.Println("Please enter a valid letter or word.")
+		}
+	}
+
+	fmt.Printf("\n You have run out of attempts. The word was %s.\n", word)
+}
+func revealLetters(word string) string {
+	n := len(word)/2 - 1
+	randomIndices := generateIndices(len(word), n)
+	display := strings.Repeat("_", len(word))
+
+	for _, idx := range randomIndices {
+		display = RevealLetter(word, display, word[idx:idx+1])
+	}
+
+	return display
+}
+
+func generateIndices(length, n int) []int {
+	if n > length {
+		n = length
+	}
+	indices := rand.Perm(length)[:n]
+	return indices
+}
+func contains(slice []string, letter string) bool {
+	for _, l := range slice {
+		if l == letter {
+			return true
+		}
+	}
+	return false
 }
