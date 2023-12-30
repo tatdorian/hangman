@@ -19,7 +19,7 @@ type HangManData struct {
 	HangmanPositions [10]string
 }
 
-func Main() HangManData {
+func Start() HangManData {
 	data := HangManData{Attempts: 10, Error: ""}
 	data.Word = GetRandomWord(os.Args[1])
 	data.ToFind = strings.Repeat("_", utf8.RuneCountInString(data.Word))
