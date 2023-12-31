@@ -1,147 +1,277 @@
-package hangmanweb
+package main
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"strings"
-	"unicode/utf8"
+	"time"
+
+	game_func "github.com/tatdorian/hangman-classic/game_func"
+	"github.com/tatdorian/hangman-classic/presentations"
 )
 
-type HangManData struct {
-	Word             string
-	ToFind           string
-	Attempts         int
-	LettersSuggested []string
-	Error            string
-	HangmanPositions [10]string
-}
-
-func Start() HangManData {
-	data := HangManData{Attempts: 10, Error: ""}
-	data.Word = GetRandomWord(os.Args[1])
-	data.ToFind = strings.Repeat("_", utf8.RuneCountInString(data.Word))
-	data.HangmanPositions = ParseHangmanFile("./hangman.txt")
-
-	RevealRandomLetter(&data)
-	return data
-}
-func ParseHangmanFile(filename string) [10]string {
-	var hangmanPositions [10]string
-	count := 0
-	index := 0
-
-	f, err := os.Open(filename)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-
-	for scanner.Scan() {
-		if count%8 == 0 && count != 0 {
-			index += 1
+func Game() {
+	args := os.Args[1:]
+	if len(args) == 1 {
+		// normal game case
+		word := strings.ToUpper(game_func.RandomWord(os.Args[1]))
+		randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
+		var hiddenLetters []int   // stocking the indices of the hidden letters
+		var revealedLetters []int // stocking the indices of the revealed letters
+		wordRune := []rune(word)
+		for i := 0; i < len(word)/2-1; i++ {
+			randTemp := randSource.Intn(len(wordRune))
+			if wordRune[randTemp] != 0 {
+				revealedLetters = append(revealedLetters, randTemp)
+				wordRune[randTemp] = 0
+			} else {
+				i--
+			}
 		}
-		line := "\n" + scanner.Text()
-		hangmanPositions[index] += line
-		count += 1
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
-	return hangmanPositions
-}
-
-func GetRandomWord(fileName string) string {
-	file, err := os.Open(fileName)
-
-	if err != nil {
-		log.Fatalf("failed opening file: %s", err)
-	}
-
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines)
-	var txtlines []string
-
-	for scanner.Scan() {
-		txtlines = append(txtlines, scanner.Text())
-	}
-
-	file.Close()
-
-	return txtlines[rand.Intn(len(txtlines)-1)]
-}
-
-func IndexToReveal(data *HangManData, letter string) []int {
-	var results []int
-
-	index := len(data.Word)
-	tmp := data.Word
-	for {
-		match := strings.LastIndex(tmp[0:index], letter)
-		if match == -1 {
-			break
+		for j := 0; j < len(wordRune); j++ {
+			if wordRune[j] != 0 {
+				hiddenLetters = append(hiddenLetters, j)
+			}
+		}
+		for _, i := range revealedLetters {
+			wordRune[i] = rune(word[i])
+		}
+		for _, i := range hiddenLetters {
+			wordRune[i] = '_'
+		}
+		attempts := 10
+		var lettersSuggested []string
+		fmt.Printf("Good Luck, you have 10 attempts.\n%s\n", string(wordRune))
+		for attempts > 0 {
+			if string(wordRune) == word {
+				fmt.Printf("%s\n", "Congrats !")
+				return
+			}
+			var letter string
+			_, err := fmt.Scan(&letter)
+			if err != nil {
+				fmt.Println(err)
+			}
+			letter = strings.ToUpper(letter)
+			if len(letter) > 1 {
+				if letter == "STOP" {
+					game_func.SaveGame(&game_func.NewSave{Word: word, WordRune: wordRune, Attempts: attempts, LettersSuggested: lettersSuggested, LetterFile: ""})
+					fmt.Printf("Choose: %s\n\nGame Saved in save.txt.\n", letter)
+					return
+				}
+				if letter == word {
+					fmt.Printf("%s\n", "Congrats !")
+					return
+				} else {
+					attempts -= 2
+					fmt.Printf("Wrong ! You have %d attempts left.\n%s\n", attempts, string(wordRune))
+					presentations.PrintMan(attempts)
+				}
+			} else {
+				if game_func.ContainsTable(lettersSuggested, letter) {
+					fmt.Printf("You already suggested this letter !\n%s\n", string(wordRune))
+				} else {
+					if game_func.ContainsString(word, letter) {
+						lettersSuggested = append(lettersSuggested, letter)
+						indexes := game_func.LetterInWorld(word, letter)
+						for _, i := range indexes {
+							wordRune[i] = rune(word[i])
+						}
+						fmt.Printf("Choose: %s\n%s\n", letter, string(wordRune))
+					} else {
+						attempts--
+						fmt.Printf("Choose: %s\nNot present in the Word, %v attempts remaining\n", letter, attempts)
+						presentations.PrintMan(attempts)
+					}
+				}
+			}
+		}
+		fmt.Printf("You Loose !\nThe word to find was %s", word)
+	} else if len(args) == 2 && args[0] == "--startWith" && args[1] == "save.txt" {
+		// save game case
+		data, err := os.ReadFile("save.txt")
+		if err != nil {
+			fmt.Println(err)
+		}
+		var GameStats *game_func.NewSave
+		if err2 := json.Unmarshal(data, &GameStats); err != nil {
+			fmt.Println(err2)
+		}
+		word, wordRune, attempts, lettersSuggested, LetterFile := GameStats.Word, GameStats.WordRune, GameStats.Attempts, GameStats.LettersSuggested, GameStats.LetterFile
+		if LetterFile == "" {
+			fmt.Printf("Welcome Back, you have %v attempts remaining.\n%s\n", attempts, string(wordRune))
+			for attempts > 0 {
+				if string(wordRune) == word {
+					fmt.Printf("%s\n", "Congrats !")
+					return
+				}
+				var letter string
+				_, err := fmt.Scan(&letter)
+				if err != nil {
+					fmt.Println(err)
+				}
+				letter = strings.ToUpper(letter)
+				if len(letter) > 1 {
+					if letter == "STOP" {
+						game_func.SaveGame(&game_func.NewSave{Word: word, WordRune: wordRune, Attempts: attempts, LettersSuggested: lettersSuggested, LetterFile: LetterFile})
+						fmt.Printf("Choose: %s\n\nGame Saved in save.txt.\n", letter)
+						return
+					}
+					if letter == word {
+						fmt.Printf("%s\n", "Congrats !")
+						return
+					} else {
+						attempts--
+						fmt.Printf("Wrong ! You have %d attempts left.\n%s\n", attempts, string(wordRune))
+						presentations.PrintMan(attempts)
+					}
+				} else {
+					if game_func.ContainsTable(lettersSuggested, letter) {
+						fmt.Printf("You already suggested this letter !\n%s\n", string(wordRune))
+					} else {
+						if game_func.ContainsString(word, letter) {
+							lettersSuggested = append(lettersSuggested, letter)
+							indexes := game_func.LetterInWorld(word, letter)
+							for _, i := range indexes {
+								wordRune[i] = rune(word[i])
+							}
+							fmt.Printf("Choose: %s\n%s\n", letter, string(wordRune))
+						} else {
+							attempts--
+							fmt.Printf("Choose: %s\nNot present in the Word, %v attempts remaining\n", letter, attempts)
+							presentations.PrintMan(attempts)
+						}
+					}
+				}
+			}
+			fmt.Printf("You Loose !\nThe word to find was %s", word)
 		} else {
-			index = match
-			results = append(results, match)
+			// letter file case
+			fmt.Printf("Welcome Back, you have %v attempts remaining.\n", attempts)
+			for attempts > 0 {
+				if string(wordRune) == word {
+					return
+				}
+				var letter string
+				_, err := fmt.Scan(&letter)
+				if err != nil {
+					fmt.Println(err)
+				}
+				letter = strings.ToUpper(letter)
+				if len(letter) > 1 {
+					if letter == "STOP" {
+						game_func.SaveGame(&game_func.NewSave{Word: word, WordRune: wordRune, Attempts: attempts, LettersSuggested: lettersSuggested, LetterFile: LetterFile})
+						fmt.Printf("Choose: %s\n\nGame Saved in save.txt.\n", letter)
+						return
+					}
+					if letter == word {
+						return
+					} else {
+						attempts--
+						fmt.Printf("Wrong ! You have %d attempts left.\n", attempts)
+						presentations.PrintMan(attempts)
+					}
+				} else {
+					if game_func.ContainsTable(lettersSuggested, letter) {
+						fmt.Printf("You already suggested this letter !\n")
+					} else {
+						if game_func.ContainsString(word, letter) {
+							lettersSuggested = append(lettersSuggested, letter)
+							indexes := game_func.LetterInWorld(word, letter)
+							for _, i := range indexes {
+								wordRune[i] = rune(word[i])
+							}
+							fmt.Printf("Choose: %s\n", letter)
+						} else {
+							attempts--
+							fmt.Printf("Choose: %s\nNot present in the Word, %v attempts remaining\n", letter, attempts)
+							presentations.PrintMan(attempts)
+						}
+					}
+				}
+			}
+			fmt.Printf("You Loose !\nThe word to find was \n")
 		}
-	}
-
-	return results
-}
-
-func RevealLetters(data *HangManData, indexes []int) {
-	tmp := []rune(data.ToFind)
-	for _, c := range indexes {
-		tmp[c] = rune(data.Word[c])
-	}
-	data.ToFind = string(tmp)
-}
-
-func RevealRandomLetter(data *HangManData) {
-	nbr := len(data.Word)/2 - 1
-	var indexes []int = make([]int, nbr)
-	for i := 0; i < nbr; i++ {
-		indexes[i] = rand.Intn(len(data.Word) - 1)
-	}
-	RevealLetters(data, indexes)
-}
-
-func letterIsAlreadyPresent(data *HangManData, l string) bool {
-	for _, letter := range data.LettersSuggested {
-		if letter == l {
-			return true
+	} else if len(args) == 3 && args[1] == "--letterFile" {
+		// letter file case
+		word := strings.ToUpper(game_func.RandomWord(os.Args[1]))
+		randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
+		var hiddenLetters []int   // stocking the indices of the hidden letters
+		var revealedLetters []int // stocking the indices of the revealed letters
+		wordRune := []rune(word)
+		for i := 0; i < len(word)/2-1; i++ {
+			randTemp := randSource.Intn(len(wordRune))
+			if wordRune[randTemp] != 0 {
+				revealedLetters = append(revealedLetters, randTemp)
+				wordRune[randTemp] = 0
+			} else {
+				i--
+			}
 		}
-	}
-	return false
-}
-
-func HangMan(data *HangManData, l string) string {
-	data.Error = ""
-	if len(l) > 1 {
-		if l == data.Word {
-			data.ToFind = data.Word
-		} else {
-			data.Attempts -= 2
-			data.Error = fmt.Sprintf("The word is not %s, %d attempts remaining\n", l, data.Attempts)
+		for j := 0; j < len(wordRune); j++ {
+			if wordRune[j] != 0 {
+				hiddenLetters = append(hiddenLetters, j)
+			}
 		}
-	} else if !letterIsAlreadyPresent(data, l) {
-		data.LettersSuggested = append(data.LettersSuggested, l)
-		indexes := IndexToReveal(data, l)
-		if len(indexes) > 0 {
-			RevealLetters(data, indexes)
-		} else {
-			data.Attempts -= 1
-			data.Error = fmt.Sprintf("Not present in the word, %d attempts remaining\n", data.Attempts)
+		for _, i := range revealedLetters {
+			wordRune[i] = rune(word[i])
 		}
+		for _, i := range hiddenLetters {
+			wordRune[i] = '_'
+		}
+		attempts := 10
+		var lettersSuggested []string
+		fmt.Printf("Good Luck, you have 10 attempts.\n")
+		for attempts > 0 {
+			if string(wordRune) == word {
+				return
+			}
+			var letter string
+			_, err := fmt.Scan(&letter)
+			if err != nil {
+				fmt.Println(err)
+			}
+			letter = strings.ToUpper(letter)
+			if len(letter) > 1 {
+				if letter == "STOP" {
+					game_func.SaveGame(&game_func.NewSave{Word: word, WordRune: wordRune, Attempts: attempts, LettersSuggested: lettersSuggested, LetterFile: args[2]})
+					fmt.Printf("Choose: %s\n\nGame Saved in save.txt.\n", letter)
+					return
+				}
+				if letter == word {
+					return
+				} else {
+					attempts -= 2
+					fmt.Printf("Wrong ! You have %d attempts left.\n", attempts)
+					presentations.PrintMan(attempts)
+				}
+			} else {
+				if game_func.ContainsTable(lettersSuggested, letter) {
+					fmt.Printf("You already suggested this letter !\n")
+				} else {
+					if game_func.ContainsString(word, letter) {
+						lettersSuggested = append(lettersSuggested, letter)
+						indexes := game_func.LetterInWorld(word, letter)
+						for _, i := range indexes {
+							wordRune[i] = rune(word[i])
+						}
+						fmt.Printf("Choose: %s\n", letter)
+					} else {
+						attempts--
+						fmt.Printf("Choose: %s\nNot present in the Word, %v attempts remaining\n", letter, attempts)
+						presentations.PrintMan(attempts)
+					}
+				}
+			}
+		}
+		fmt.Printf("You Loose !\nThe word to find was\n")
 	} else {
-		data.Error = fmt.Sprintf("Letter '%s' already suggested\n", l)
+		fmt.Println("Impossible...")
 	}
-	return data.Error
+}
+
+func main() {
+	Game()
 }
