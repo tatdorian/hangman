@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	game_func "github.com/tatdorian/hangman-classic/game_func"
-	"github.com/tatdorian/hangman-classic/presentations"
+	game_func "github.com/tatdorian/hangman/game_func"
+	"github.com/tatdorian/hangman/presentations"
 )
 
 func Game() {

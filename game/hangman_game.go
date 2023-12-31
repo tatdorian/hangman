@@ -3,8 +3,8 @@ package game
 import (
 	"encoding/json"
 	"fmt"
-	"hangman-classic/game_func"
-	"hangman-classic/presentations"
+	"hangman/game_func"
+	"hangman/presentations"
 	"os"
 	"strings"
 )
